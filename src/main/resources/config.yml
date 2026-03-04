@@ -1,0 +1,338 @@
+accordion:
+  # Vanilla item example: "v.iron_ingot"
+  # ItemsAdder item example: "ia.tfmc:written_letter" 
+  item: "m.instruments.accordion"
+
+  # Will be sent when a player uses /instruments keybinds
+  keybind-message: |
+   §aUse keys 1-8 to play §6notes:
+   §e1-[C] 2-[D] 3-[E] 4-[F] 5-[G] 6-[A] 7-[B] 8-[C]
+   
+   §aHold shift to play §6chords:
+   §e1-[C] 2-[D] 3-[E] 4-[F] 5-[G] 6-[A] 7-[B] 8-[C]
+   
+  # Plays the defined sound by running /playsound `defined bellow` `player` ~ ~ ~ `volume` `pitch`
+  # Works with vanilla sounds. Ex: `block.note_block.pling`
+  hotbar-sounds:
+    1: instruments.accordion_1c_single
+    1+sneak: instruments.accordion_1c_chord
+
+    2: instruments.accordion_2d_single
+    2+sneak: instruments.accordion_2d_chord
+
+    3: instruments.accordion_3e_single
+    3+sneak: instruments.accordion_3e_chord
+
+    4: instruments.accordion_4f_single
+    4+sneak: instruments.accordion_4f_chord
+
+    5: instruments.accordion_5g_single
+    5+sneak: instruments.accordion_5g_chord
+
+    6: instruments.accordion_6a_single
+    6+sneak: instruments.accordion_6a_chord
+
+    7: instruments.accordion_7b_single
+    7+sneak: instruments.accordion_7b_chord
+
+    8: instruments.accordion_8c_single
+    8+sneak: instruments.accordion_8c_chord
+
+  volume: 4.0               # 1 Volume = 16 blocks of range (in this case, 64 blocks)
+  pitch: 1.0                # Range between 0.5 (half speed) and 2.0 (double speed)
+
+bagpipe:
+  item: "m.instruments.bagpipe"
+  keybind-message: |
+   §aUse keys 1-8 to play §6notes:
+   §e1-[C] 2-[D] 3-[E] 4-[F] 5-[G] 6-[A] 7-[B] 8-[C]
+   
+   §aHold shift to play §6additional notes:
+   §e9-[C] 10-[D] 11-[E] 12-[F] 13-[G] 14-[A] 15-[B] 16-[C]
+   
+  hotbar-sounds:
+    1: instruments.bagpipe_1c_single
+    1+sneak: instruments.bagpipe_9c_single
+
+    2: instruments.bagpipe_2d_single
+    2+sneak: instruments.bagpipe_10d_single
+
+    3: instruments.bagpipe_3e_single
+    3+sneak: instruments.bagpipe_11e_single
+
+    4: instruments.bagpipe_4f_single
+    4+sneak: instruments.bagpipe_12f_single
+
+    5: instruments.bagpipe_5g_single
+    5+sneak: instruments.bagpipe_13g_single
+
+    6: instruments.bagpipe_6a_single
+    6+sneak: instruments.bagpipe_14a_single
+
+    7: instruments.bagpipe_7b_single
+    7+sneak: instruments.bagpipe_15b_single
+
+    8: instruments.bagpipe_8c_single
+    8+sneak: instruments.bagpipe_16c_single
+
+    volume: 4.0
+    pitch: 1.0
+
+celtic_harp:
+  item: "m.instruments.celtic_harp"
+  keybind-message: |
+   §aUse keys 1-8 to play §6notes:
+   §e1-[C] 2-[D] 3-[E] 4-[F] 5-[G] 6-[A] 7-[B] 8-[C]
+   
+   §aHold shift to play §6chords:
+   §e1-[C] 2-[D] 3-[E] 4-[F] 5-[G] 6-[A] 7-[B] 8-[C]
+   
+  hotbar-sounds:
+    1: instruments.celtic_harp_1c_single
+    1+sneak: instruments.celtic_harp_1c_chord
+
+    2: instruments.celtic_harp_2d_single
+    2+sneak: instruments.celtic_harp_2d_chord
+
+    3: instruments.celtic_harp_3e_single
+    3+sneak: instruments.celtic_harp_3e_chord
+
+    4: instruments.celtic_harp_4f_single
+    4+sneak: instruments.celtic_harp_4f_chord
+
+    5: instruments.celtic_harp_5g_single
+    5+sneak: instruments.celtic_harp_5g_chord
+
+    6: instruments.celtic_harp_6a_single
+    6+sneak: instruments.celtic_harp_6a_chord
+
+    7: instruments.celtic_harp_7b_single
+    7+sneak: instruments.celtic_harp_7b_chord
+
+    8: instruments.celtic_harp_8c_single
+    8+sneak: instruments.celtic_harp_8c_chord
+
+    volume: 4.0
+    pitch: 1.0
+
+dulcimer:
+  item: "m.instruments.dulcimer"
+  keybind-message: |
+   §aUse keys 1-8 to play §6notes:
+   §e1-[C] 2-[D] 3-[E] 4-[F] 5-[G] 6-[A] 7-[B] 8-[C]
+   
+   §aHold shift to play §6chords:
+   §e1-[C] 2-[D] 3-[E] 4-[F] 5-[G] 6-[A] 7-[B] 8-[C]
+   
+  hotbar-sounds:
+    1: instruments.dulcimer_1c_single
+    1+sneak: instruments.dulcimer_1c_chord
+
+    2: instruments.dulcimer_2d_single
+    2+sneak: instruments.dulcimer_2d_chord
+
+    3: instruments.dulcimer_3e_single
+    3+sneak: instruments.dulcimer_3e_chord
+
+    4: instruments.dulcimer_4f_single
+    4+sneak: instruments.dulcimer_4f_chord
+
+    5: instruments.dulcimer_5g_single
+    5+sneak: instruments.dulcimer_5g_chord
+
+    6: instruments.dulcimer_6a_single
+    6+sneak: instruments.dulcimer_6a_chord
+
+    7: instruments.dulcimer_7b_single
+    7+sneak: instruments.dulcimer_7b_chord
+
+    8: instruments.dulcimer_8c_single
+    8+sneak: instruments.dulcimer_8c_chord
+
+    volume: 4.0
+    pitch: 1.0
+
+flute:
+  item: "m.instruments.flute"
+  keybind-message: |
+   §aUse keys 1-8 to play §6notes:
+   §e1-[C] 2-[D] 3-[E] 4-[F] 5-[G] 6-[A] 7-[B] 8-[C]
+   
+   §aHold shift to play §6additional notes:
+   §e9-[C] 10-[D] 11-[E] 12-[F] 13-[G] 14-[A] 15-[B] 16-[C]
+   
+  hotbar-sounds:
+    1: instruments.flute_1c_single
+    1+sneak: instruments.flute_9c_single
+
+    2: instruments.flute_2d_single
+    2+sneak: instruments.flute_10d_single
+
+    3: instruments.flute_3e_single
+    3+sneak: instruments.flute_11e_single
+
+    4: instruments.flute_4f_single
+    4+sneak: instruments.flute_12f_single
+
+    5: instruments.flute_5g_single
+    5+sneak: instruments.flute_13g_single
+
+    6: instruments.flute_6a_single
+    6+sneak: instruments.flute_14a_single
+
+    7: instruments.flute_7b_single
+    7+sneak: instruments.flute_15b_single
+
+    8: instruments.flute_8c_single
+    8+sneak: instruments.flute_16c_single
+
+    volume: 4.0
+    pitch: 1.0
+
+kalimba:
+  item: "m.instruments.kalimba"
+  keybind-message: |
+   §aUse keys 1-8 to play §6notes:
+   §e1-[C] 2-[D] 3-[E] 4-[F] 5-[G] 6-[A] 7-[B] 8-[C]
+   
+   §aHold shift to play §6chords:
+   §e1-[C] 2-[D] 3-[E] 4-[F] 5-[G] 6-[A] 7-[B] 8-[C]
+   
+  hotbar-sounds:
+    1: instruments.kalimba_1c_single
+    1+sneak: instruments.kalimba_1c_chord
+
+    2: instruments.kalimba_2d_single
+    2+sneak: instruments.kalimba_2d_chord
+
+    3: instruments.kalimba_3e_single
+    3+sneak: instruments.kalimba_3e_chord
+
+    4: instruments.kalimba_4f_single
+    4+sneak: instruments.kalimba_4f_chord
+
+    5: instruments.kalimba_5g_single
+    5+sneak: instruments.kalimba_5g_chord
+
+    6: instruments.kalimba_6a_single
+    6+sneak: instruments.kalimba_6a_chord
+
+    7: instruments.kalimba_7b_single
+    7+sneak: instruments.kalimba_7b_chord
+
+    8: instruments.kalimba_8c_single
+    8+sneak: instruments.kalimba_8c_chord
+
+    volume: 4.0
+    pitch: 1.0
+
+lute:
+  item: "m.instruments.lute"
+  keybind-message: |
+   §aUse keys 1-8 to play §6notes:
+   §e1-[C] 2-[D] 3-[E] 4-[F] 5-[G] 6-[A] 7-[B] 8-[C]
+   
+   §aHold shift to play §6chords:
+   §e1-[C] 2-[D] 3-[E] 4-[F] 5-[G] 6-[A] 7-[B] 8-[C]
+   
+  hotbar-sounds:
+    1: instruments.lute_1c_single
+    1+sneak: instruments.lute_1c_chord
+
+    2: instruments.lute_2d_single
+    2+sneak: instruments.lute_2d_chord
+
+    3: instruments.lute_3e_single
+    3+sneak: instruments.lute_3e_chord
+
+    4: instruments.lute_4f_single
+    4+sneak: instruments.lute_4f_chord
+
+    5: instruments.lute_5g_single
+    5+sneak: instruments.lute_5g_chord
+
+    6: instruments.lute_6a_single
+    6+sneak: instruments.lute_6a_chord
+
+    7: instruments.lute_7b_single
+    7+sneak: instruments.lute_7b_chord
+
+    8: instruments.lute_8c_single
+    8+sneak: instruments.lute_8c_chord
+
+    volume: 4.0
+    pitch: 1.0
+
+trumpet:
+  item: "m.instruments.trumpet"
+  keybind-message: |
+   §aUse keys 1-8 to play §6notes:
+   §e1-[C] 2-[D] 3-[E] 4-[F] 5-[G] 6-[A] 7-[B] 8-[C]
+   
+   §aHold shift to play §6additional notes:
+   §e9-[C] 10-[D] 11-[E] 12-[F] 13-[G] 14-[A] 15-[B] 16-[C]
+   
+  hotbar-sounds:
+    1: instruments.trumpet_1c_single
+    1+sneak: instruments.trumpet_9c_single
+
+    2: instruments.trumpet_2d_single
+    2+sneak: instruments.trumpet_10d_single
+
+    3: instruments.trumpet_3e_single
+    3+sneak: instruments.trumpet_11e_single
+
+    4: instruments.trumpet_4f_single
+    4+sneak: instruments.trumpet_12f_single
+
+    5: instruments.trumpet_5g_single
+    5+sneak: instruments.trumpet_13g_single
+
+    6: instruments.trumpet_6a_single
+    6+sneak: instruments.trumpet_14a_single
+
+    7: instruments.trumpet_7b_single
+    7+sneak: instruments.trumpet_15b_single
+
+    8: instruments.trumpet_8c_single
+    8+sneak: instruments.trumpet_16c_single
+
+    volume: 4.0
+    pitch: 1.0
+
+vielle:
+  item: "m.instruments.vielle"
+  keybind-message: |
+   §aUse keys 1-8 to play §6notes:
+   §e1-[C] 2-[D] 3-[E] 4-[F] 5-[G] 6-[A] 7-[B] 8-[C]
+   
+   §aHold shift to play §6chords:
+   §e1-[C] 2-[D] 3-[E] 4-[F] 5-[G] 6-[A] 7-[B] 8-[C]
+   
+  hotbar-sounds:
+    1: instruments.vielle_1c_single
+    1+sneak: instruments.vielle_1c_chord
+
+    2: instruments.vielle_2d_single
+    2+sneak: instruments.vielle_2d_chord
+
+    3: instruments.vielle_3e_single
+    3+sneak: instruments.vielle_3e_chord
+
+    4: instruments.vielle_4f_single
+    4+sneak: instruments.vielle_4f_chord
+
+    5: instruments.vielle_5g_single
+    5+sneak: instruments.vielle_5g_chord
+
+    6: instruments.vielle_6a_single
+    6+sneak: instruments.vielle_6a_chord
+
+    7: instruments.vielle_7b_single
+    7+sneak: instruments.vielle_7b_chord
+
+    8: instruments.vielle_8c_single
+    8+sneak: instruments.vielle_8c_chord
+
+    volume: 4.0
+    pitch: 1.0

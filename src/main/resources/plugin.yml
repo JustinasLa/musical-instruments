@@ -1,0 +1,11 @@
+main: tfmc.justin.InstrumentPlugin
+version: 2.0
+name: MusicalInstruments
+author: Justin
+api-version: 1.21
+depend: [TLibs]
+
+commands:
+  instruments:
+    description: Musical instruments commands
+    usage: /instruments <keybinds|recordings>

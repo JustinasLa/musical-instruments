@@ -1,0 +1,42 @@
+# Recordings configuration file
+# Stores all recorded instrument performances
+
+# To access a recording as a player with permissions, use the command:
+# /instruments recordings access <recording_id>
+# Example: /instruments recordings access recording_mock_001
+
+recordings:
+  recording_mock_001:
+    created: "2026-02-28"
+    metadata:
+      name: "§6Tavern Jig"
+      author: "Aldric the Bard"
+      description: "A lively tune played nightly at the Rusty Flagon."
+      # Replace this UUID with a real player UUID if you want someone to own it,
+      # or leave it as-is so no real player "owns" it (no one can edit/delete it).
+      creator: "00000000-0000-0000-0000-000000000000"
+      accessors: []
+    slots:
+      0:
+        sound: "minecraft:block.note_block.harp"
+        type: "vanilla"
+        source: "NOTE_BLOCKS"
+      1:
+        sound: "minecraft:block.note_block.flute"
+        type: "vanilla"
+        source: "NOTE_BLOCKS"
+      2:
+        sound: "minecraft:block.note_block.harp"
+        type: "vanilla"
+        source: "NOTE_BLOCKS"
+      8:
+        sound: "minecraft:block.note_block.bass"
+        type: "vanilla"
+        source: "NOTE_BLOCKS"
+      9:
+        sound: "minecraft:block.note_block.flute"
+        type: "vanilla"
+        source: "NOTE_BLOCKS"
+    delays:
+      row1: 0.25
+      row2: 0.5
