@@ -6,7 +6,6 @@
 ![Paper](https://img.shields.io/badge/Paper-1.21+-blue)
 ![Maven](https://img.shields.io/badge/Build-Maven-red?logo=apachemaven&logoColor=white)
 ![Version](https://img.shields.io/badge/Version-2.0-green)
-![License](https://img.shields.io/badge/Server-TFMC-purple)
 
 Built for the [TFMC](https://www.patreon.com/c/TFMCRP) roleplay server, where it runs in production for live in-game concerts and performances.
 
