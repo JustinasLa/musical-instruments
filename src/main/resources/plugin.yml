@@ -8,4 +8,4 @@ depend: [TLibs]
 commands:
   instruments:
     description: Musical instruments commands
-    usage: /instruments <keybinds|recordings>
+    usage: /instruments <keybinds>
