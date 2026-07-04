@@ -39,7 +39,7 @@
             <artifactId>TLibs</artifactId>
             <version>1.0</version>
             <scope>system</scope>
-            <systemPath>C:/Users/HP/Desktop/plugins/dependancies/TLibs.jar</systemPath>
+            <systemPath>${project.basedir}/libs/TLibs.jar</systemPath>
         </dependency>
     </dependencies>
 
