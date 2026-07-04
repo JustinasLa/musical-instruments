@@ -1,4 +1,4 @@
-# 🎵 MusicalInstruments
+# MusicalInstruments
 
 **A Minecraft server plugin that turns items into playable musical instruments — play live music with your hotbar.**
 
@@ -12,19 +12,19 @@ Built for the [TFMC](https://www.patreon.com/c/TFMCRP) roleplay server, where it
 
 ---
 
-## ✨ What It Does
+## What It Does
 
 Hold an instrument in your off-hand and your hotbar becomes a keyboard: switching to slots 1–8 plays notes in real time, and holding **Shift** plays alternate notes or full chords. Each instrument is fully data-driven — server admins define instruments, sounds, volume, and pitch entirely in YAML, with no code changes required.
 
 | | |
 |---|---|
-| 🎹 **Live performance** | Hotbar slots 1–8 mapped to notes; instant playback with note particle effects |
-| 🎼 **Chord modifier** | Shift + slot plays an alternate note or chord per instrument |
-| 🔌 **Custom sound packs** | Integrates with TLibs, MMOItems, and ItemsAdder resource-pack sounds, plus vanilla sounds |
-| ⚙️ **Config-driven design** | New instruments added purely through `config.yml` — items, keybinds, sounds, volume, pitch |
-| 📖 **In-game help** | `/instruments keybinds` shows the note layout for whatever instrument you're holding |
+| **Live performance** | Hotbar slots 1–8 mapped to notes; instant playback with note particle effects |
+| **Chord modifier** | Shift + slot plays an alternate note or chord per instrument |
+| **Custom sound packs** | Integrates with TLibs, MMOItems, and ItemsAdder resource-pack sounds, plus vanilla sounds |
+| **Config-driven design** | New instruments added purely through `config.yml` — items, keybinds, sounds, volume, pitch |
+| **In-game help** | `/instruments keybinds` shows the note layout for whatever instrument you're holding |
 
-## 🧠 How It Works
+## How It Works
 
 The plugin listens for `PlayerItemHeldEvent` (hotbar slot changes). When the player has a configured instrument in their off-hand:
 
@@ -34,7 +34,7 @@ The plugin listens for `PlayerItemHeldEvent` (hotbar slot changes). When the pla
 
 A lightweight repeating task tracks each performing player and cleans itself up the moment the instrument leaves their off-hand, keeping the scheduler free of stale tasks.
 
-## 🏗️ Architecture
+## Architecture
 
 Small, deliberate footprint — each class has one job:
 
@@ -98,7 +98,7 @@ classDiagram
 - **Event-driven, zero polling for input** — playback rides on Bukkit's own hotbar event; the only scheduled task is a 1-second-interval watcher per *active* performer, cancelled as soon as they stow the instrument.
 - **Abstraction over item plugins** — item identity resolves through the TLibs `ItemAPI`, so the same config format supports MMOItems, ItemsAdder, and vanilla items with a one-character prefix.
 
-## 📦 Installation
+## Installation
 
 1. Drop `musicalinstruments-2.0.jar` into your server's `plugins/` folder
 2. Install **TLibs** (required). **MMOItems** / **ItemsAdder** are optional sound-pack sources
@@ -109,13 +109,13 @@ classDiagram
 
 | Dependency | Required |
 |---|---|
-| [Paper](https://papermc.io/) 1.21+ | ✅ |
-| Java 21 | ✅ |
-| [TLibs](https://www.spigotmc.org/resources/tlibs.127713/) | ✅ |
+| [Paper](https://papermc.io/) 1.21+ | Yes |
+| Java 21 | Yes |
+| [TLibs](https://www.spigotmc.org/resources/tlibs.127713/) | Yes |
 | [MMOItems](https://www.spigotmc.org/resources/mmoitems-premium.39267/) | Optional |
 | [ItemsAdder](https://itemsadder.com/) | Optional |
 
-## 🎮 Usage
+## Usage
 
 1. Hold an instrument item in your **off-hand**
 2. Switch between hotbar slots **1–8** to play notes
@@ -126,7 +126,7 @@ classDiagram
 |---|---|
 | `/instruments keybinds` | Show the keybind layout for the instrument in your off-hand |
 
-## ⚙️ Configuration
+## Configuration
 
 Each instrument is one self-contained section in `config.yml`:
 
@@ -163,7 +163,7 @@ accordion:
 | ItemsAdder | `ia.namespace:item_id` | `ia.tfmc:accordion` |
 | Vanilla | `v.material` | `v.iron_ingot` |
 
-## 🔨 Building from Source
+## Building from Source
 
 ```bash
 git clone https://github.com/JustinasLa/musical-instruments.git
@@ -173,13 +173,13 @@ mvn package
 
 Requires JDK 21 and Maven. The TLibs and MMOItems jars are referenced as local system dependencies — adjust the paths in `pom.xml` to your local copies. The built jar is copied to the project root by the `package` phase.
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 - **Java 21** · **Paper API 1.21.3** · **Maven**
 - Bukkit event system, scheduler, and YAML configuration API
 - TLibs ItemAPI for cross-plugin item resolution
 
-## 👤 Author
+## Author
 
 **Justinas Launikonis** — plugin developer for TFMC
 [GitHub](https://github.com/JustinasLa) · [Support TFMC](https://www.patreon.com/c/TFMCRP)
