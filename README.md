@@ -180,5 +180,5 @@ Requires JDK 21 and Maven. The TLibs and MMOItems jars are referenced as local s
 
 ## Author
 
-**Justinas Launikonis** — plugin developer for TFMC
+**Justinas Launikonis** —
 [GitHub](https://github.com/JustinasLa) · [Support TFMC](https://www.patreon.com/c/TFMCRP)
