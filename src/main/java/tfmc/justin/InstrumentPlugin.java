@@ -28,6 +28,10 @@ public class InstrumentPlugin extends JavaPlugin {
 
         manager = new InstrumentManager(this, api);
 
+        // Resolve instrument templates on the first tick, after every plugin
+        // (MMOItems, ItemsAdder) has finished enabling and registered its items.
+        getServer().getScheduler().runTask(this, manager::loadTemplates);
+
         InstrumentCommand commandHandler = new InstrumentCommand(this, manager);
         getCommand("instruments").setExecutor(commandHandler);
         getCommand("instruments").setTabCompleter(commandHandler);

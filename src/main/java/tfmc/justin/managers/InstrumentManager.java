@@ -4,6 +4,9 @@ import me.Plugins.TLibs.Objects.API.ItemAPI;
 import org.bukkit.inventory.ItemStack;
 import tfmc.justin.InstrumentPlugin;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
 
 // ====================================
@@ -11,15 +14,49 @@ import java.util.Set;
 // Identifies instruments with TLibs.
 // ====================================
 public class InstrumentManager {
-    
+
     private final InstrumentPlugin plugin;
     private final ItemAPI api;
-    
+    private final Map<String, ItemStack> templates;
+
     public InstrumentManager(InstrumentPlugin plugin, ItemAPI api) {
         this.plugin = plugin;
         this.api = api;
+        this.templates = new LinkedHashMap<>();
     }
-    
+
+    // ====================================
+    // Resolves every configured instrument item once and caches the result,
+    // so hotbar events compare against cached templates instead of calling
+    // TLibs for each instrument on every slot change.
+    // Called on enable and on /instruments reload.
+    // ====================================
+    public void loadTemplates() {
+        templates.clear();
+
+        for (String instrument : plugin.getConfig().getKeys(false)) {
+            String configPath = plugin.getConfig().getString(instrument + ".item");
+            if (configPath == null) {
+                plugin.getLogger().warning("Instrument '" + instrument + "' has no 'item' defined in config.");
+                continue;
+            }
+
+            try {
+                ItemStack template = api.getCreator().getItemFromPath(configPath);
+                if (template == null) {
+                    plugin.getLogger().warning("Could not resolve item '" + configPath + "' for instrument '" + instrument + "'.");
+                    continue;
+                }
+
+                templates.put(instrument, template);
+            } catch (Exception e) {
+                plugin.getLogger().warning("Failed to load instrument '" + instrument + "': " + e.getMessage());
+            }
+        }
+
+        plugin.getLogger().info("Loaded " + templates.size() + " instrument(s).");
+    }
+
     // ====================================
     // Gets the instrument ID from an ItemStack.
     // ====================================
@@ -27,35 +64,17 @@ public class InstrumentManager {
         if (item == null) {
             return null;
         }
-        
-        Set<String> instruments = plugin.getConfig().getKeys(false);
-        
-        for (String instrument : instruments) {
-            String configPath = plugin.getConfig().getString(instrument + ".item");
-            if (configPath == null) {
-                continue;
-            }
-            
-            try {
-                // Get the item from TLibs using the config
-                ItemStack template = api.getCreator().getItemFromPath(configPath);
-                if (template == null) {
-                    continue;
-                }
-                
-                // If the item matches this instrument's template, return the instrument ID
-                if (item.isSimilar(template)) {
-                    return instrument;
-                }
-            } catch (Exception e) {
-                plugin.getLogger().warning("Failed to validate instrument '" + instrument + "': " + e.getMessage());
+
+        for (Map.Entry<String, ItemStack> entry : templates.entrySet()) {
+            if (item.isSimilar(entry.getValue())) {
+                return entry.getKey();
             }
         }
-        
+
         return null;
     }
-    
-    // Gets the keybind message for an instrument.
+
+    // Gets the sound key for an instrument slot and sneak state.
     public String getSoundKey(String instrument, int slot, boolean sneaking)
     {
         String commandKey = sneaking ? slot + "+sneak" : String.valueOf(slot);
@@ -66,21 +85,12 @@ public class InstrumentManager {
     public String getKeybindMessage(String instrument){ return plugin.getConfig().getString(instrument + ".keybind-message"); }
     public double getVolume(String instrument) { return plugin.getConfig().getDouble(instrument + ".hotbar-sounds.volume", 1.0);}
     public double getPitch(String instrument){ return plugin.getConfig().getDouble(instrument + ".hotbar-sounds.pitch", 1.0); }
-    public Set<String> getAllInstruments() { return plugin.getConfig().getKeys(false); }
+    public Set<String> getAllInstruments() { return Collections.unmodifiableSet(templates.keySet()); }
 
-    // Gets an instrument item from TLibs using the config path.
+    // Gets a copy of an instrument's cached item template.
     public ItemStack getInstrumentItem(String instrument) {
-        String configPath = plugin.getConfig().getString(instrument + ".item");
-        if (configPath == null) {
-            return null;
-        }
-        
-        try {
-            return api.getCreator().getItemFromPath(configPath);
-        } catch (Exception e) {
-            plugin.getLogger().warning("Failed to get instrument item '" + instrument + "': " + e.getMessage());
-            
-            return null;
-        }
+        ItemStack template = templates.get(instrument);
+
+        return template == null ? null : template.clone();
     }
 }

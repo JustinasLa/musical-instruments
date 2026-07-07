@@ -5,7 +5,7 @@
 ![Java](https://img.shields.io/badge/Java-21-orange?logo=openjdk&logoColor=white)
 ![Paper](https://img.shields.io/badge/Paper-1.21+-blue)
 ![Maven](https://img.shields.io/badge/Build-Maven-red?logo=apachemaven&logoColor=white)
-![Version](https://img.shields.io/badge/Version-2.0-green)
+![Version](https://img.shields.io/badge/Version-2.1-green)
 
 Built for the [TFMC](https://www.patreon.com/c/TFMCRP) roleplay server, where it runs in production for live in-game concerts and performances.
 
@@ -99,7 +99,7 @@ classDiagram
 
 ## Installation
 
-1. Drop `musicalinstruments-2.0.jar` into your server's `plugins/` folder
+1. Drop `musicalinstruments-2.1.jar` into your server's `plugins/` folder
 2. Install **TLibs** (required). **MMOItems** / **ItemsAdder** are optional sound-pack sources
 3. Restart the server (or load with PlugManX)
 4. Define your instruments in `plugins/MusicalInstruments/config.yml`
@@ -121,9 +121,12 @@ classDiagram
 3. Hold **Shift** while switching to play chords / alternate notes
 4. Run `/instruments keybinds` to see your instrument's note layout
 
-| Command | Description |
-|---|---|
-| `/instruments keybinds` | Show the keybind layout for the instrument in your off-hand |
+| Command | Description | Permission |
+|---|---|---|
+| `/instruments keybinds` | Show the keybind layout for the instrument in your off-hand | `instruments.use` (default: everyone) |
+| `/instruments list` | List all loaded instruments | `instruments.use` (default: everyone) |
+| `/instruments give <instrument>` | Give yourself an instrument item | `instruments.give` (default: op) |
+| `/instruments reload` | Reload the config and instrument cache | `instruments.reload` (default: op) |
 
 ## Configuration
 

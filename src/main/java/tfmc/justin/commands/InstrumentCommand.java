@@ -5,17 +5,21 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 import tfmc.justin.InstrumentPlugin;
 import tfmc.justin.managers.InstrumentManager;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 // ====================================
 // Handles the /instruments command.
-// Shows keybinds for the instrument held in the player's off-hand.
+// Subcommands: keybinds, list, give, reload.
 // ====================================
 public class InstrumentCommand implements CommandExecutor, TabCompleter {
+
+    private static final String USAGE = "§cUsage: /instruments <keybinds|list|give|reload>";
 
     private final InstrumentPlugin plugin;
     private final InstrumentManager manager;
@@ -29,26 +33,53 @@ public class InstrumentCommand implements CommandExecutor, TabCompleter {
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         // Check if the correct subcommand was provided
         if (args.length == 0) {
-            sender.sendMessage("§cUsage: /instruments <keybinds>");
+            sender.sendMessage(USAGE);
             return true;
         }
-
-        // Only players can use this command
-        if (!(sender instanceof Player)) {
-            sender.sendMessage("§cOnly players can use this command!");
-            return true;
-        }
-
-        Player player = (Player) sender;
 
         // Handle different subcommands
         switch (args[0].toLowerCase()) {
             case "keybinds":
-                handleKeybinds(player);
+                if (requirePermission(sender, "instruments.use") && requirePlayer(sender)) {
+                    handleKeybinds((Player) sender);
+                }
+                break;
+            case "list":
+                if (requirePermission(sender, "instruments.use")) {
+                    handleList(sender);
+                }
+                break;
+            case "give":
+                if (requirePermission(sender, "instruments.give") && requirePlayer(sender)) {
+                    handleGive((Player) sender, args);
+                }
+                break;
+            case "reload":
+                if (requirePermission(sender, "instruments.reload")) {
+                    handleReload(sender);
+                }
                 break;
             default:
-                sender.sendMessage("§cUsage: /instruments <keybinds>");
+                sender.sendMessage(USAGE);
                 break;
+        }
+
+        return true;
+    }
+
+    private boolean requirePermission(CommandSender sender, String permission) {
+        if (!sender.hasPermission(permission)) {
+            sender.sendMessage("§cYou don't have permission to do that!");
+            return false;
+        }
+
+        return true;
+    }
+
+    private boolean requirePlayer(CommandSender sender) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage("§cOnly players can use this command!");
+            return false;
         }
 
         return true;
@@ -86,6 +117,51 @@ public class InstrumentCommand implements CommandExecutor, TabCompleter {
     }
 
     // ====================================
+    // Handles the /instruments list command
+    // ====================================
+    private void handleList(CommandSender sender) {
+        var instruments = manager.getAllInstruments();
+
+        if (instruments.isEmpty()) {
+            sender.sendMessage("§cNo instruments are loaded.");
+            return;
+        }
+
+        sender.sendMessage("§aLoaded instruments (§6" + instruments.size() + "§a):");
+        sender.sendMessage("§e" + String.join("§7, §e", instruments));
+    }
+
+    // ====================================
+    // Handles the /instruments give <instrument> command
+    // ====================================
+    private void handleGive(Player player, String[] args) {
+        if (args.length < 2) {
+            player.sendMessage("§cUsage: /instruments give <instrument>");
+            return;
+        }
+
+        String instrument = args[1].toLowerCase();
+        ItemStack item = manager.getInstrumentItem(instrument);
+
+        if (item == null) {
+            player.sendMessage("§cUnknown instrument: §e" + instrument);
+            return;
+        }
+
+        player.getInventory().addItem(item);
+        player.sendMessage("§aYou received: §e" + instrument);
+    }
+
+    // ====================================
+    // Handles the /instruments reload command
+    // ====================================
+    private void handleReload(CommandSender sender) {
+        plugin.reloadConfig();
+        manager.loadTemplates();
+        sender.sendMessage("§aConfig reloaded. §e" + manager.getAllInstruments().size() + " §ainstrument(s) loaded.");
+    }
+
+    // ====================================
     // Provides tab completion for the command
     // When typing /instruments
     // ====================================
@@ -93,9 +169,32 @@ public class InstrumentCommand implements CommandExecutor, TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
 
         if (args.length == 1) {
-            return List.of("keybinds");
+            List<String> subcommands = new ArrayList<>();
+            if (sender.hasPermission("instruments.use")) {
+                subcommands.add("keybinds");
+                subcommands.add("list");
+            }
+            if (sender.hasPermission("instruments.give")) {
+                subcommands.add("give");
+            }
+            if (sender.hasPermission("instruments.reload")) {
+                subcommands.add("reload");
+            }
+
+            return filterPrefix(subcommands, args[0]);
+        }
+
+        if (args.length == 2 && args[0].equalsIgnoreCase("give") && sender.hasPermission("instruments.give")) {
+            return filterPrefix(new ArrayList<>(manager.getAllInstruments()), args[1]);
         }
 
         return Collections.emptyList();
+    }
+
+    private List<String> filterPrefix(List<String> options, String prefix) {
+        String lower = prefix.toLowerCase();
+        options.removeIf(option -> !option.toLowerCase().startsWith(lower));
+
+        return options;
     }
 }

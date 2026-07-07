@@ -1,5 +1,5 @@
 main: tfmc.justin.InstrumentPlugin
-version: 2.0
+version: 2.1
 name: MusicalInstruments
 author: Justin
 api-version: 1.21
@@ -8,4 +8,15 @@ depend: [TLibs]
 commands:
   instruments:
     description: Musical instruments commands
-    usage: /instruments <keybinds>
+    usage: /instruments <keybinds|list|give|reload>
+
+permissions:
+  instruments.use:
+    description: Use /instruments keybinds and list
+    default: true
+  instruments.give:
+    description: Give instrument items with /instruments give
+    default: op
+  instruments.reload:
+    description: Reload the config with /instruments reload
+    default: op
