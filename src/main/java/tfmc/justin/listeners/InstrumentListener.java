@@ -7,12 +7,14 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerItemHeldEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.scheduler.BukkitRunnable;
 import tfmc.justin.InstrumentPlugin;
 import tfmc.justin.managers.InstrumentManager;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 // ====================================
 // Handles instrument-related events.
@@ -22,12 +24,17 @@ public class InstrumentListener implements Listener {
     
     private final InstrumentPlugin plugin;
     private final InstrumentManager manager;
-    private final Map<Player, Integer> instrumentTasks;
-    
+    private final Map<UUID, Integer> instrumentTasks;
+
     public InstrumentListener(InstrumentPlugin plugin, InstrumentManager manager) {
         this.plugin = plugin;
         this.manager = manager;
         this.instrumentTasks = new HashMap<>();
+    }
+
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        stopInstrumentDisplay(event.getPlayer());
     }
     
     @EventHandler
@@ -83,22 +90,26 @@ public class InstrumentListener implements Listener {
     // Check which instrument is being held by the player.
     // ====================================
     private void startInstrumentDisplay(Player player, String instrument) {
-        if (instrumentTasks.containsKey(player)) {
+        if (instrumentTasks.containsKey(player.getUniqueId())) {
             return;
         }
-        
+
         BukkitRunnable task = new BukkitRunnable() {
             @Override
             public void run() {
+                if (!player.isOnline()) {
+                    stopInstrumentDisplay(player);
+                    return;
+                }
                 String currentInstrument = manager.getInstrument(player.getInventory().getItemInOffHand());
                 if (!instrument.equals(currentInstrument)) {
                     stopInstrumentDisplay(player);
                 }
             }
         };
-        
+
         int taskId = task.runTaskTimer(plugin, 0L, 20L).getTaskId();
-        instrumentTasks.put(player, taskId);
+        instrumentTasks.put(player.getUniqueId(), taskId);
     }
     
     // ====================================
@@ -106,7 +117,7 @@ public class InstrumentListener implements Listener {
     // ====================================
     private void stopInstrumentDisplay(Player player)
     {
-        Integer taskId = instrumentTasks.remove(player);
+        Integer taskId = instrumentTasks.remove(player.getUniqueId());
         if (taskId != null) {
             Bukkit.getScheduler().cancelTask(taskId);
         }

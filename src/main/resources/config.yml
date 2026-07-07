@@ -38,8 +38,8 @@ accordion:
     8: instruments.accordion_8c_single
     8+sneak: instruments.accordion_8c_chord
 
-  volume: 4.0               # 1 Volume = 16 blocks of range (in this case, 64 blocks)
-  pitch: 1.0                # Range between 0.5 (half speed) and 2.0 (double speed)
+    volume: 4.0             # 1 Volume = 16 blocks of range (in this case, 64 blocks)
+    pitch: 1.0              # Range between 0.5 (half speed) and 2.0 (double speed)
 
 bagpipe:
   item: "m.instruments.bagpipe"

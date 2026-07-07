@@ -150,8 +150,8 @@ accordion:
     2+sneak: instruments.accordion_2d_chord
     # ... slots 3-8 follow the same pattern
 
-  volume: 4.0   # 1.0 = 16 blocks of range (4.0 = 64 blocks)
-  pitch: 1.0    # 0.5 (lower/slower) to 2.0 (higher/faster)
+    volume: 4.0   # 1.0 = 16 blocks of range (4.0 = 64 blocks)
+    pitch: 1.0    # 0.5 (lower/slower) to 2.0 (higher/faster)
 ```
 
 **Item path formats**
@@ -180,5 +180,4 @@ Requires JDK 21 and Maven. The TLibs and MMOItems jars are referenced as local s
 
 ## Author
 
-**Justinas Launikonis** —
-[GitHub](https://github.com/JustinasLa) · [Support TFMC](https://www.patreon.com/c/TFMCRP)
+**Justinas Launikonis** — [GitHub](https://github.com/JustinasLa) · [Support TFMC](https://www.patreon.com/c/TFMCRP)
