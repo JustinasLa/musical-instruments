@@ -3,19 +3,35 @@ package tfmc.justin;
 import me.Plugins.TLibs.Enums.APIType;
 import me.Plugins.TLibs.Objects.API.ItemAPI;
 import me.Plugins.TLibs.TLibs;
+import org.bstats.bukkit.Metrics;
+import org.bstats.charts.AdvancedPie;
+import org.bstats.charts.SimplePie;
+import org.bstats.charts.SingleLineChart;
 import org.bukkit.plugin.java.JavaPlugin;
 import tfmc.justin.commands.InstrumentCommand;
 import tfmc.justin.listeners.InstrumentListener;
 import tfmc.justin.managers.InstrumentManager;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 // ====================================
 // Main plugin class for MusicalInstruments.
 // ====================================
 public class InstrumentPlugin extends JavaPlugin {
 
+    private static final int BSTATS_PLUGIN_ID = 33322;
+
     private static InstrumentPlugin instance;
     private ItemAPI api;
     private InstrumentManager manager;
+
+    // Play counts since the last bStats submission.
+    // Written from the main thread (listener), read and reset from the bStats submit thread every 30 minutes.
+    private final Map<String, AtomicInteger> playCounts = new ConcurrentHashMap<>();
+    private final AtomicInteger totalPlays = new AtomicInteger();
 
     @Override
     public void onEnable() {
@@ -38,6 +54,40 @@ public class InstrumentPlugin extends JavaPlugin {
 
         // Register event listeners
         getServer().getPluginManager().registerEvents(new InstrumentListener(this, manager), this);
+
+        setupMetrics();
+    }
+
+    // Anonymous usage stats via bStats.
+    // Servers can opt out globally in plugins/bStats/config.yml.
+    private void setupMetrics() {
+        Metrics metrics = new Metrics(this, BSTATS_PLUGIN_ID);
+
+        // How many instrument templates actually resolved on this server.
+        metrics.addCustomChart(new SimplePie("instruments_loaded",
+                () -> String.valueOf(manager.getAllInstruments().size())));
+
+        // Total notes played in the last submission interval.
+        // Kept as its own counter so it does not depend on chart submission order.
+        metrics.addCustomChart(new SingleLineChart("notes_played",
+                () -> totalPlays.getAndSet(0)));
+
+        // Per-instrument breakdown, drained so each submission covers one interval.
+        metrics.addCustomChart(new AdvancedPie("instrument_usage", () -> {
+            Map<String, Integer> snapshot = new HashMap<>();
+            for (Map.Entry<String, AtomicInteger> entry : playCounts.entrySet()) {
+                int count = entry.getValue().getAndSet(0);
+                if (count > 0) {
+                    snapshot.put(entry.getKey(), count);
+                }
+            }
+            return snapshot;
+        }));
+    }
+
+    public void recordInstrumentPlay(String instrument) {
+        playCounts.computeIfAbsent(instrument, k -> new AtomicInteger()).incrementAndGet();
+        totalPlays.incrementAndGet();
     }
 
     @Override

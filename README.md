@@ -5,7 +5,7 @@
 ![Java](https://img.shields.io/badge/Java-21-orange?logo=openjdk&logoColor=white)
 ![Paper](https://img.shields.io/badge/Paper-1.21+-blue)
 ![Maven](https://img.shields.io/badge/Build-Maven-red?logo=apachemaven&logoColor=white)
-![Version](https://img.shields.io/badge/Version-2.1-green)
+![Version](https://img.shields.io/badge/Version-2.2-green)
 
 Built for the [TFMC](https://www.patreon.com/c/TFMCRP) roleplay server, where it runs in production for live in-game concerts and performances.
 
@@ -99,7 +99,7 @@ classDiagram
 
 ## Installation
 
-1. Drop `musicalinstruments-2.1.jar` into your server's `plugins/` folder
+1. Drop `musicalinstruments-2.2.jar` into your server's `plugins/` folder
 2. Install **TLibs** (required). **MMOItems** / **ItemsAdder** are optional sound-pack sources
 3. Restart the server (or load with PlugManX)
 4. Define your instruments in `plugins/MusicalInstruments/config.yml`
@@ -175,11 +175,18 @@ mvn package
 
 Requires JDK 21 and Maven. The TLibs and MMOItems jars are referenced as local system dependencies — adjust the paths in `pom.xml` to your local copies. The built jar is copied to the project root by the `package` phase.
 
+## Metrics
+
+This plugin collects anonymous usage statistics via [bStats](https://bstats.org/plugin/bukkit/musicalinstruments/33322): server count, player count, server software and version, Java version, and plugin-specific counters (instruments loaded, notes played per instrument). No player names, IPs, or world data are sent.
+
+To opt out, set `enabled: false` in `plugins/bStats/config.yml`. That disables bStats for every plugin on the server.
+
 ## Tech Stack
 
 - **Java 21** · **Paper API 1.21.3** · **Maven**
 - Bukkit event system, scheduler, and YAML configuration API
 - TLibs ItemAPI for cross-plugin item resolution
+- bStats for anonymous usage metrics
 
 ## Author
 

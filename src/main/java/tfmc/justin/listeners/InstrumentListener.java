@@ -71,6 +71,8 @@ public class InstrumentListener implements Listener {
             (float) pitch
         );
         
+        plugin.recordInstrumentPlay(instrument);
+
         // Spawn particle effect
         player.getWorld().spawnParticle(
             Particle.NOTE, 
