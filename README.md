@@ -6,6 +6,7 @@
 ![Paper](https://img.shields.io/badge/Paper-1.21+-blue)
 ![Maven](https://img.shields.io/badge/Build-Maven-red?logo=apachemaven&logoColor=white)
 ![Version](https://img.shields.io/badge/Version-2.2-green)
+![License](https://img.shields.io/badge/License-MIT-yellow)
 
 Built for the [TFMC](https://www.patreon.com/c/TFMCRP) roleplay server, where it runs in production for live in-game concerts and performances.
 
@@ -187,6 +188,10 @@ To opt out, set `enabled: false` in `plugins/bStats/config.yml`. That disables b
 - Bukkit event system, scheduler, and YAML configuration API
 - TLibs ItemAPI for cross-plugin item resolution
 - bStats for anonymous usage metrics
+
+## License
+
+Released under the [MIT License](LICENSE) — free to use, modify, and redistribute, including on commercial servers.
 
 ## Author
 
