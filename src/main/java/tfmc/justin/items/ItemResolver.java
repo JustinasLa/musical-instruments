@@ -18,9 +18,10 @@ import java.util.logging.Logger;
 //   v.<MATERIAL>                                   vanilla item
 //   m.<TYPE>.<ID>                                  MMOItems item
 //   ia.<namespace:id>                              ItemsAdder item
+//   nx.<id>                                        Nexo item
 //   modeled(type=..;name=..;model=..)              vanilla item with display name / custom model data
 //
-// MMOItems and ItemsAdder are reached through reflection, so neither plugin
+// MMOItems, ItemsAdder and Nexo are reached through reflection, so none of them
 // is a compile-time or runtime requirement: paths that need a missing plugin
 // simply fail to resolve and the instrument is skipped.
 // ====================================
@@ -57,7 +58,11 @@ public class ItemResolver {
             return resolveItemsAdder(trimmed);
         }
 
-        logger.warning("Unknown item path prefix in '" + trimmed + "'. Expected v., m., ia. or modeled(...).");
+        if (type.equalsIgnoreCase("nx")) {
+            return resolveNexo(trimmed);
+        }
+
+        logger.warning("Unknown item path prefix in '" + trimmed + "'. Expected v., m., ia., nx. or modeled(...).");
         return null;
     }
 
@@ -199,8 +204,43 @@ public class ItemResolver {
         }
     }
 
+    // nx.accordion  ->  NexoItems.itemFromId("accordion").build()
+    private ItemStack resolveNexo(String path) {
+        String[] parts = path.split("\\.", 2);
+        if (parts.length < 2) {
+            logger.warning("Malformed Nexo path '" + path + "'. Expected nx.<id>.");
+            return null;
+        }
+
+        if (!isPluginEnabled("Nexo")) {
+            logger.warning("Item '" + path + "' requires Nexo, which is not installed.");
+            return null;
+        }
+
+        try {
+            Class<?> nexoItems = Class.forName("com.nexomc.nexo.api.NexoItems");
+            Object builder = nexoItems.getMethod("itemFromId", String.class).invoke(null, parts[1]);
+            if (builder == null) {
+                logger.warning("Unknown Nexo item '" + path + "'.");
+                return null;
+            }
+
+            Object item = invokeByName(builder, "build", 0);
+            if (item instanceof ItemStack itemStack) {
+                itemStack.setAmount(1);
+                return itemStack;
+            }
+
+            logger.warning("Nexo returned no item for '" + path + "'.");
+            return null;
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            logger.warning("Failed to read Nexo item '" + path + "': " + e);
+            return null;
+        }
+    }
+
     // Looks a method up by name and parameter count instead of exact signature,
-    // so the plugin keeps working across MMOItems/ItemsAdder API type changes.
+    // so the plugin keeps working across MMOItems/ItemsAdder/Nexo API type changes.
     private Object invokeByName(Object target, String name, int paramCount, Object... args)
             throws ReflectiveOperationException {
         for (Class<?> current = target.getClass(); current != null; current = current.getSuperclass()) {

@@ -1,6 +1,7 @@
 accordion:
   # Vanilla item example: "v.iron_ingot"
-  # ItemsAdder item example: "ia.tfmc:written_letter" 
+  # ItemsAdder item example: "ia.tfmc:written_letter"
+  # Nexo item example: "nx.accordion"
   item: "m.instruments.accordion"
 
   # Will be sent when a player uses /instruments keybinds

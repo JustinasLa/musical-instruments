@@ -1,9 +1,9 @@
 main: tfmc.justin.InstrumentPlugin
-version: 2.3
+version: 2.4
 name: MusicalInstruments
 author: Justin
 api-version: 1.21
-softdepend: [MMOItems, ItemsAdder]
+softdepend: [MMOItems, ItemsAdder, Nexo]
 
 commands:
   instruments:
