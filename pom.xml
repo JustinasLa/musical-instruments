@@ -6,7 +6,7 @@
 
     <groupId>tfmc.justin</groupId>
     <artifactId>musicalinstruments</artifactId>
-    <version>2.2</version>
+    <version>2.3</version>
     
     <name>MusicalInstruments</name>
     <url>tfminecraft.net</url>
@@ -31,15 +31,6 @@
             <artifactId>paper-api</artifactId>
             <version>1.21.3-R0.1-SNAPSHOT</version>
             <scope>provided</scope>
-        </dependency>
-
-        <!-- TLibs -->
-        <dependency>
-            <groupId>local</groupId>
-            <artifactId>TLibs</artifactId>
-            <version>1.0</version>
-            <scope>system</scope>
-            <systemPath>${project.basedir}/libs/TLibs.jar</systemPath>
         </dependency>
 
         <!-- bStats metrics -->

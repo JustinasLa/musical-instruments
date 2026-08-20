@@ -1,8 +1,8 @@
 package tfmc.justin.managers;
 
-import me.Plugins.TLibs.Objects.API.ItemAPI;
 import org.bukkit.inventory.ItemStack;
 import tfmc.justin.InstrumentPlugin;
+import tfmc.justin.items.ItemResolver;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -11,24 +11,24 @@ import java.util.Set;
 
 // ====================================
 // Manages instrument detection and validation.
-// Identifies instruments with TLibs.
+// Identifies instruments by comparing against resolved item templates.
 // ====================================
 public class InstrumentManager {
 
     private final InstrumentPlugin plugin;
-    private final ItemAPI api;
+    private final ItemResolver itemResolver;
     private final Map<String, ItemStack> templates;
 
-    public InstrumentManager(InstrumentPlugin plugin, ItemAPI api) {
+    public InstrumentManager(InstrumentPlugin plugin, ItemResolver itemResolver) {
         this.plugin = plugin;
-        this.api = api;
+        this.itemResolver = itemResolver;
         this.templates = new LinkedHashMap<>();
     }
 
     // ====================================
     // Resolves every configured instrument item once and caches the result,
     // so hotbar events compare against cached templates instead of calling
-    // TLibs for each instrument on every slot change.
+    // the item resolver for each instrument on every slot change.
     // Called on enable and on /instruments reload.
     // ====================================
     public void loadTemplates() {
@@ -42,7 +42,7 @@ public class InstrumentManager {
             }
 
             try {
-                ItemStack template = api.getCreator().getItemFromPath(configPath);
+                ItemStack template = itemResolver.resolve(configPath);
                 if (template == null) {
                     plugin.getLogger().warning("Could not resolve item '" + configPath + "' for instrument '" + instrument + "'.");
                     continue;

@@ -1,14 +1,12 @@
 package tfmc.justin;
 
-import me.Plugins.TLibs.Enums.APIType;
-import me.Plugins.TLibs.Objects.API.ItemAPI;
-import me.Plugins.TLibs.TLibs;
 import org.bstats.bukkit.Metrics;
 import org.bstats.charts.AdvancedPie;
 import org.bstats.charts.SimplePie;
 import org.bstats.charts.SingleLineChart;
 import org.bukkit.plugin.java.JavaPlugin;
 import tfmc.justin.commands.InstrumentCommand;
+import tfmc.justin.items.ItemResolver;
 import tfmc.justin.listeners.InstrumentListener;
 import tfmc.justin.managers.InstrumentManager;
 
@@ -25,7 +23,7 @@ public class InstrumentPlugin extends JavaPlugin {
     private static final int BSTATS_PLUGIN_ID = 33322;
 
     private static InstrumentPlugin instance;
-    private ItemAPI api;
+    private ItemResolver itemResolver;
     private InstrumentManager manager;
 
     // Play counts since the last bStats submission.
@@ -40,9 +38,9 @@ public class InstrumentPlugin extends JavaPlugin {
 
         saveDefaultConfig();
 
-        api = (ItemAPI) TLibs.getApiInstance(APIType.ITEM_API);
+        itemResolver = new ItemResolver(getLogger());
 
-        manager = new InstrumentManager(this, api);
+        manager = new InstrumentManager(this, itemResolver);
 
         // Resolve instrument templates on the first tick, after every plugin
         // (MMOItems, ItemsAdder) has finished enabling and registered its items.
@@ -96,6 +94,6 @@ public class InstrumentPlugin extends JavaPlugin {
     }
 
     public static InstrumentPlugin getInstance() { return instance; }
-    public ItemAPI getApi() { return api; }
+    public ItemResolver getItemResolver() { return itemResolver; }
     public InstrumentManager getManager() { return manager; }
 }

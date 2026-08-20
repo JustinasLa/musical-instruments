@@ -5,7 +5,7 @@
 ![Java](https://img.shields.io/badge/Java-21-orange?logo=openjdk&logoColor=white)
 ![Paper](https://img.shields.io/badge/Paper-1.21+-blue)
 ![Maven](https://img.shields.io/badge/Build-Maven-red?logo=apachemaven&logoColor=white)
-![Version](https://img.shields.io/badge/Version-2.2-green)
+![Version](https://img.shields.io/badge/Version-2.3-green)
 ![License](https://img.shields.io/badge/License-MIT-yellow)
 
 Built for the [TFMC](https://www.patreon.com/c/TFMCRP) roleplay server, where it runs in production for live in-game concerts and performances.
@@ -20,7 +20,7 @@ Hold an instrument in your off-hand and your hotbar becomes a keyboard: switchin
 |---|---|
 | **Live performance** | Hotbar slots 1–8 mapped to notes; instant playback with note particle effects |
 | **Chord modifier** | Shift + slot plays an alternate note or chord per instrument |
-| **Custom sound packs** | Integrates with TLibs, MMOItems, and ItemsAdder resource-pack sounds, plus vanilla sounds |
+| **Custom sound packs** | Integrates with MMOItems and ItemsAdder resource-pack sounds, plus vanilla sounds |
 | **Config-driven design** | New instruments added purely through `config.yml` — items, keybinds, sounds, volume, pitch |
 | **In-game help** | `/instruments keybinds` shows the note layout for whatever instrument you're holding |
 
@@ -96,12 +96,12 @@ classDiagram
 
 - **Configuration over code** — instruments are pure data. Adding a new instrument (item, note layout, chords, volume) is a YAML edit, not a release.
 - **Event-driven, zero polling for input** — playback rides on Bukkit's own hotbar event; the only scheduled task is a 1-second-interval watcher per *active* performer, cancelled as soon as they stow the instrument.
-- **Abstraction over item plugins** — item identity resolves through the TLibs `ItemAPI`, so the same config format supports MMOItems, ItemsAdder, and vanilla items with a one-character prefix.
+- **Abstraction over item plugins** — item identity resolves through a built-in `ItemResolver`, so the same config format supports MMOItems, ItemsAdder, and vanilla items with a one-character prefix. MMOItems and ItemsAdder are reached reflectively, so neither is a hard dependency and no third-party library plugin is needed.
 
 ## Installation
 
-1. Drop `musicalinstruments-2.2.jar` into your server's `plugins/` folder
-2. Install **TLibs** (required). **MMOItems** / **ItemsAdder** are optional sound-pack sources
+1. Drop `musicalinstruments-2.3.jar` into your server's `plugins/` folder
+2. No library plugin is required. **MMOItems** / **ItemsAdder** are optional — install them only if your config references `m.` or `ia.` item paths
 3. Restart the server (or load with PlugManX)
 4. Define your instruments in `plugins/MusicalInstruments/config.yml`
 
@@ -111,9 +111,8 @@ classDiagram
 |---|---|
 | [Paper](https://papermc.io/) 1.21+ | Yes |
 | Java 21 | Yes |
-| [TLibs](https://www.spigotmc.org/resources/tlibs.127713/) | Yes |
-| [MMOItems](https://www.spigotmc.org/resources/mmoitems-premium.39267/) | Optional |
-| [ItemsAdder](https://itemsadder.com/) | Optional |
+| [MMOItems](https://www.spigotmc.org/resources/mmoitems-premium.39267/) | Optional — only for `m.` item paths |
+| [ItemsAdder](https://itemsadder.com/) | Optional — only for `ia.` item paths |
 
 ## Usage
 
@@ -135,7 +134,7 @@ Each instrument is one self-contained section in `config.yml`:
 
 ```yaml
 accordion:
-  # Item that acts as the instrument (TLibs/MMOItems/ItemsAdder/vanilla path)
+  # Item that acts as the instrument (MMOItems/ItemsAdder/vanilla path)
   item: "m.instruments.accordion"
 
   # Message shown by /instruments keybinds
@@ -165,6 +164,7 @@ accordion:
 | MMOItems | `m.category.item_id` | `m.instruments.accordion` |
 | ItemsAdder | `ia.namespace:item_id` | `ia.tfmc:accordion` |
 | Vanilla | `v.material` | `v.iron_ingot` |
+| Vanilla + model | `modeled(type=..;name=..;model=..)` | `modeled(type=paper;name=&6Flute;model=1001)` |
 
 ## Building from Source
 
@@ -174,7 +174,7 @@ cd musical-instruments
 mvn package
 ```
 
-Requires JDK 21 and Maven. The TLibs and MMOItems jars are referenced as local system dependencies — adjust the paths in `pom.xml` to your local copies. The built jar is copied to the project root by the `package` phase.
+Requires JDK 21 and Maven. All dependencies resolve from public repositories — no local jars needed. The built jar is copied to the project root by the `package` phase.
 
 ## Metrics
 
@@ -186,7 +186,7 @@ To opt out, set `enabled: false` in `plugins/bStats/config.yml`. That disables b
 
 - **Java 21** · **Paper API 1.21.3** · **Maven**
 - Bukkit event system, scheduler, and YAML configuration API
-- TLibs ItemAPI for cross-plugin item resolution
+- Reflective MMOItems / ItemsAdder lookups for cross-plugin item resolution (no hard dependency)
 - bStats for anonymous usage metrics
 
 ## License
