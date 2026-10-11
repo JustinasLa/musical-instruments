@@ -74,6 +74,16 @@ class InstrumentPluginTest {
     }
 
     @Test
+    void shutdownAlsoHandlesStudioInitializationThatDidNotFinish() throws Exception {
+        plugin.onDisable();
+        for (String name : List.of("studioMenu", "studio")) {
+            var field = InstrumentPlugin.class.getDeclaredField(name);
+            field.setAccessible(true); field.set(plugin, null);
+        }
+        plugin.onDisable();
+    }
+
+    @Test
     void loadsInstrumentsOnTheFirstTick() {
         // The bundled instruments need MMOItems, which is not installed, so point one at a vanilla item.
         plugin.getConfig().set("lute.item", "v.note_block");
@@ -137,5 +147,31 @@ class InstrumentPluginTest {
         }
         assertNull(plugin.getKeyboard());
         plugin.onDisable();
+    }
+
+    @Test
+    void recordsPlayedNotesIntoAStudioTake() {
+        plugin.getConfig().set("lute.item", "v.note_block");
+        server.getScheduler().performOneTick();
+        PlayerMock player = server.addPlayer();
+        player.getInventory().setItemInOffHand(new ItemStack(Material.NOTE_BLOCK));
+        assertTrue(player.performCommand("music new Song"));
+        assertTrue(player.performCommand("music record 1"));
+        server.getScheduler().performTicks(61); // the count-in
+        server.getPluginManager().callEvent(new PlayerItemHeldEvent(player, 8, 0));
+        while (player.nextMessage() != null) {
+            // Skip the project and count-in messages.
+        }
+
+        assertTrue(player.performCommand("music stop"));
+        assertEquals("Recording stopped. Take saved: /music preview take, /music keep, or /music discard.", player.nextMessage());
+    }
+
+    @Test
+    void disablesItselfWhenTheStudioCannotStart() throws java.io.IOException {
+        plugin.onDisable();
+        java.nio.file.Files.writeString(plugin.getDataFolder().toPath().resolve("studio.yml"), "max-tracks: [");
+        plugin.onEnable();
+        assertFalse(plugin.isEnabled());
     }
 }
