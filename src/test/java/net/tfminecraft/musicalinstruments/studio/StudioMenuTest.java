@@ -29,6 +29,39 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 class StudioMenuTest {
+    @Test
+    void keepingTakePreservesLatestTrackMix() throws Exception {
+        Track saved = project.song().track(1);
+        project = new Project(project.song(), saved, 100, false);
+        when(studio.requireProject(player)).thenReturn(project);
+        click(12, ClickType.LEFT);
+        executeClick();
+        var edited = ArgumentCaptor.forClass(Project.class);
+        verify(studio).edit(eq(player), edited.capture());
+        Project mixed = edited.getValue();
+        assertTrue(mixed.song().track(1).muted());
+        assertTrue(mixed.accept().song().track(1).muted(), "Keeping the take should not undo the mute button");
+    }
+
+    @Test
+    void takePreviewAndKeepUseNewVolumeAndCanUnmuteAPreviouslyMutedTrack() throws Exception {
+        Track saved = project.song().track(1).mix(.5f, true);
+        project = new Project(project.song().replace(saved), saved, 100, false);
+        when(studio.requireProject(player)).thenReturn(project);
+        click(12, ClickType.LEFT); executeClick();
+        var edits = ArgumentCaptor.forClass(Project.class);
+        verify(studio).edit(eq(player), edits.capture());
+        Project unmuted = edits.getValue();
+        assertFalse(unmuted.pending().muted());
+        when(studio.requireProject(player)).thenReturn(unmuted);
+        click(11, ClickType.LEFT); executeClick();
+        verify(studio, times(2)).edit(eq(player), edits.capture());
+        Project adjusted = edits.getAllValues().getLast();
+        assertEquals(.75f, adjusted.pending().gain());
+        assertEquals(.75f, adjusted.accept().song().track(1).gain());
+        assertFalse(adjusted.accept().song().track(1).muted());
+    }
+
     private final InstrumentPlugin plugin = mock(InstrumentPlugin.class);
     private final StudioService studio = mock(StudioService.class);
     private final StudioDialogs dialogs = mock(StudioDialogs.class);
@@ -78,8 +111,8 @@ class StudioMenuTest {
         project = new Project(new Song(UUID.randomUUID(), player.getUniqueId(), "Player", "Song", List.of(saved)), pending, 100, false);
         when(studio.project(player)).thenReturn(project);
         when(studio.requireProject(player)).thenReturn(project);
-        when(studio.listProjects(player)).thenReturn(List.of(project));
-        when(studio.settings()).thenReturn(new StudioSettings(4, 40, 20, 60, 8, 32, 2, 0, 2));
+        when(studio.listProjects(player)).thenReturn(List.of(ProjectSummary.of(project)));
+        when(studio.settings()).thenReturn(new StudioSettings(4, 40, 20, 60, 8, 32, 2, 0, 2, 0, 0));
         when(studio.activity(player)).thenReturn(new StudioService.Activity(0, 0, 0, 0, false));
         StudioIcons icons = mock(StudioIcons.class);
         when(icons.item(any(), any(), anyList())).thenReturn(mock(ItemStack.class));
@@ -268,7 +301,7 @@ class StudioMenuTest {
 
     @Test
     void tracksFiveToEightHaveTheirOwnPageAndPreserveTrackNumbers() throws Exception {
-        when(studio.settings()).thenReturn(new StudioSettings(8, 40, 20, 60, 8, 32, 2, 0, 2));
+        when(studio.settings()).thenReturn(new StudioSettings(8, 40, 20, 60, 8, 32, 2, 0, 2, 0, 0));
         menu.openProject(player, station);
         click(53, ClickType.LEFT);
         executeClick();
@@ -279,17 +312,18 @@ class StudioMenuTest {
 
     @Test
     void libraryFillsAllThirtySixSlotsAndRightClickRequestsDeletion() throws Exception {
-        List<Project> library = java.util.stream.IntStream.range(0, 36).mapToObj(index ->
+        List<Project> projects = java.util.stream.IntStream.range(0, 36).mapToObj(index ->
                 new Project(new Song(UUID.randomUUID(), player.getUniqueId(), "Player", "Song " + index, List.of()), null, 100, true)).toList();
+        List<ProjectSummary> library = projects.stream().map(ProjectSummary::of).toList();
         when(studio.listProjects(player)).thenReturn(library);
         menu.open(player, station);
         click(9, ClickType.RIGHT);
         executeClick();
-        verify(dialogs).delete(player, new Location(world, 0, 0, 0), library.getFirst().song().id());
-        when(studio.requireProject(player)).thenReturn(library.getLast());
+        verify(dialogs).delete(player, new Location(world, 0, 0, 0), library.getFirst().id());
+        when(studio.requireProject(player)).thenReturn(projects.getLast());
         click(44, ClickType.LEFT);
         executeClick();
-        verify(studio).selectProject(player, library.getLast().song().id());
+        verify(studio).selectProject(player, library.getLast().id());
     }
 
     @Test
@@ -398,7 +432,7 @@ class StudioMenuTest {
         Track muted = project.song().track(1).mix(.5f, true);
         project = new Project(project.song().replace(muted), null, 100, true);
         when(studio.requireProject(player)).thenReturn(project);
-        when(studio.settings()).thenReturn(new StudioSettings(2, 40, 20, 60, 8, 32, 2, 0, 2));
+        when(studio.settings()).thenReturn(new StudioSettings(2, 40, 20, 60, 8, 32, 2, 0, 2, 0, 0));
         when(studio.activity(player)).thenReturn(new StudioService.Activity(1, 2, 1, 0, false));
         menu.openProject(player, station);
         when(studio.activity(player)).thenReturn(new StudioService.Activity(0, 0, 0, 0, true));
@@ -440,7 +474,7 @@ class StudioMenuTest {
         click(9, ClickType.LEFT); executeClick();
         click(0, ClickType.LEFT); executeClick();
         for (int raw : new int[]{9, 17, 46, 45, 53, 49}) { click(raw, ClickType.LEFT); executeClick(); }
-        when(studio.settings()).thenReturn(new StudioSettings(2, 40, 20, 60, 8, 32, 2, 0, 2));
+        when(studio.settings()).thenReturn(new StudioSettings(2, 40, 20, 60, 8, 32, 2, 0, 2, 0, 0));
         click(28, ClickType.LEFT); executeClick();
         verify(studio, never()).record(any(), anyInt());
     }
@@ -467,7 +501,7 @@ class StudioMenuTest {
 
     @Test
     void trackPagingReturnsToThePreviousFourTracks() throws Exception {
-        when(studio.settings()).thenReturn(new StudioSettings(8, 40, 20, 60, 8, 32, 2, 0, 2));
+        when(studio.settings()).thenReturn(new StudioSettings(8, 40, 20, 60, 8, 32, 2, 0, 2, 0, 0));
         menu.openProject(player, station);
         click(53, ClickType.LEFT); executeClick();
         click(45, ClickType.LEFT); executeClick();

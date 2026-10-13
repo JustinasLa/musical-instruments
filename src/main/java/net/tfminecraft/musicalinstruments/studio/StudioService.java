@@ -21,20 +21,25 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
 /** All capture/playback uses one main-thread clock, including overdub monitoring. */
 public final class StudioService {
     public static final int MAX_PROJECTS = 36;
+    static final long RETRY_TICKS = 1200;
+    static final long SHUTDOWN_WAIT_SECONDS = 30;
     private final InstrumentPlugin plugin;
     private final InstrumentManager manager;
     private final StudioStore store;
@@ -44,6 +49,17 @@ public final class StudioService {
     private final Map<UUID, Project> projects = new HashMap<>();
     private final Map<UUID, Capture> recordings = new HashMap<>();
     private final Map<UUID, Preview> previews = new HashMap<>();
+    private final Map<UUID, Set<String>> privateSounds = new HashMap<>();
+    // Each owner's latest save. An in-flight snapshot is immutable; pending snapshots of the same
+    // owner share a future and are replaced with the newest project instead of filling the executor.
+    private final Map<UUID, CompletableFuture<Void>> pendingSaves = new HashMap<>();
+    // Accessed by the main thread and the writer only while holding this map's monitor.
+    private final Map<UUID, QueuedSave> queuedSaves = new HashMap<>();
+    // Owners whose cached project is newer than its files: a write is still queued, or the last one failed.
+    // Other cached projects match the disk, so disconnects and shutdown need not write them again.
+    private final Set<UUID> unsaved = new HashSet<>();
+    // Clock tick of each player's last publication, kept only while the cooldown applies.
+    private final Map<UUID, Long> lastPublished = new HashMap<>();
     private final Map<BlockKey, Playback> jukeboxes = new HashMap<>();
     private final Map<UUID, Song> editions = new LinkedHashMap<>(16, 0.75f, true) {
         @Override
@@ -52,16 +68,17 @@ public final class StudioService {
         }
     };
     private final BukkitTask task;
-    private final ExecutorService checkpointWriter = Executors.newSingleThreadExecutor(
-            Thread.ofPlatform().daemon(true).name("musical-instruments-checkpoints").factory());
+    private final ExecutorService checkpointWriter;
     private long clock;
+    private boolean closed;
+    private volatile long shutdownDeadline;
 
     public StudioService(InstrumentPlugin plugin, InstrumentManager manager) throws IOException {
         this(plugin, manager, loadSettings(plugin));
     }
 
     private StudioService(InstrumentPlugin plugin, InstrumentManager manager, YamlConfiguration yaml) throws IOException {
-        this(plugin, manager, new StudioStore(plugin.getDataFolder().toPath().resolve("studio")), StudioSettings.read(yaml),
+        this(plugin, manager, new StudioStore(plugin.getDataFolder().toPath().resolve("studio"), plugin.getLogger()), StudioSettings.read(yaml),
                 StudioStation.parse(yaml.getString("station", ""), plugin.getLogger()), new DiscItems(plugin));
     }
 
@@ -80,12 +97,19 @@ public final class StudioService {
 
     StudioService(InstrumentPlugin plugin, InstrumentManager manager, StudioStore store, StudioSettings settings,
                   StudioStation station, DiscItems discs) {
+        this(plugin, manager, store, settings, station, discs, Executors.newSingleThreadExecutor(
+                Thread.ofPlatform().daemon(true).name("musical-instruments-checkpoints").factory()));
+    }
+
+    StudioService(InstrumentPlugin plugin, InstrumentManager manager, StudioStore store, StudioSettings settings,
+                  StudioStation station, DiscItems discs, ExecutorService checkpointWriter) {
         this.plugin = plugin;
         this.manager = manager;
         this.settings = settings;
         this.station = station;
         this.store = store;
         this.discs = discs;
+        this.checkpointWriter = checkpointWriter;
         task = plugin.getServer().getScheduler().runTaskTimer(plugin, this::tick, 1L, 1L);
     }
 
@@ -127,14 +151,15 @@ public final class StudioService {
     }
 
     public void create(Player player, String title, boolean reset) throws IOException {
-        requireIdle(player);
-        if (!reset) requireProjectSpace(player);
+        requireSaved(player);
         Project previous = project(player);
-        if (previous != null) save(player, previous); // Also preserve a take retained after a failed write.
+        // Without an active project to replace, a reset creates another project.
+        if (!reset || previous == null) requireProjectSpace(player);
+        persist(player); // A project whose last write failed is written before another replaces it.
         UUID id = reset && previous != null ? previous.song().id() : UUID.randomUUID();
         save(player, new Project(new Song(id, player.getUniqueId(), player.getName(), title, List.of()),
                 null, 100, true));
-        previews.remove(player.getUniqueId());
+        stopPreview(player);
     }
 
     public void requireProjectSpace(Player player) throws IOException {
@@ -143,60 +168,98 @@ public final class StudioService {
         }
     }
 
+    /** Loads only the requested project; a cached version may contain changes not yet written. */
     public Project project(Player player, UUID id) throws IOException {
-        Project current = project(player);
-        return current != null && current.song().id().equals(id) ? current : store.project(player.getUniqueId(), id);
+        Project current = projects.get(player.getUniqueId());
+        if (current != null && current.song().id().equals(id)) return current;
+        return store.project(player.getUniqueId(), id);
     }
 
+    /** Deletes the project only if it still matches what the player confirmed. */
     public void deleteProject(Player player, Project expected) throws IOException {
-        requireIdle(player);
-        if (!expected.song().owner().equals(player.getUniqueId())) throw new IllegalArgumentException("This is not your project");
+        requireSaved(player); // A queued write would bring the deleted project back.
+        requireOwner(player, expected);
         UUID id = expected.song().id();
-        if (!project(player, id).equals(expected)) throw new IllegalArgumentException("The project changed. Open the delete confirmation again");
-        Project current = project(player);
+        // Summaries omit notes, mix and settings, so they cannot protect a stale confirmation.
+        if (!project(player, id).equals(expected)) {
+            throw new IllegalArgumentException("The project changed. Open the delete confirmation again");
+        }
         store.delete(player.getUniqueId(), id);
+        Project current = projects.get(player.getUniqueId());
         if (current != null && current.song().id().equals(id)) {
             projects.remove(player.getUniqueId());
-            previews.remove(player.getUniqueId());
+            unsaved.remove(player.getUniqueId());
+            stopPreview(player);
         }
         player.sendMessage("Deleted '" + expected.song().title() + "'. Published discs keep their music.");
     }
 
-    public List<Project> listProjects(Player player) throws IOException {
-        Map<UUID, Project> all = new LinkedHashMap<>();
-        for (Project project : store.projects(player.getUniqueId())) all.put(project.song().id(), project);
-        Project active = project(player);
-        if (active != null) all.put(active.song().id(), active);
-        return all.values().stream().sorted(java.util.Comparator.comparing((Project project) -> project.song().title(),
-                String.CASE_INSENSITIVE_ORDER).thenComparing(project -> project.song().id())).toList();
+    public List<ProjectSummary> listProjects(Player player) throws IOException {
+        Map<UUID, ProjectSummary> all = new LinkedHashMap<>();
+        for (ProjectSummary summary : store.summaries(player.getUniqueId())) all.put(summary.id(), summary);
+        // An uncached project matches its files; a cached one may be newer than them.
+        Project active = projects.get(player.getUniqueId());
+        if (active != null) all.put(active.song().id(), ProjectSummary.of(active));
+        return all.values().stream().sorted(ProjectSummary.ORDER).toList();
     }
 
     public void selectProject(Player player, UUID id) throws IOException {
         Project current = project(player);
         if (current != null && current.song().id().equals(id)) return;
-        requireIdle(player);
+        requireSaved(player); // The next project is read from its file, which a queued write could still change.
         Project next = store.project(player.getUniqueId(), id);
-        if (current != null) save(player, current);
-        save(player, next);
-        previews.remove(player.getUniqueId());
+        persist(player);
+        store.select(player.getUniqueId(), id); // Both projects already match their files.
+        projects.put(player.getUniqueId(), next);
+        stopPreview(player);
     }
 
+    /** Writes the project before it becomes the active one. Used when creating or replacing a project. */
     public void save(Player player, Project project) throws IOException {
+        requireOwner(player, project);
+        requireSaved(player);
+        store.save(project); // Persist successfully before replacing the in-memory version.
+        projects.put(player.getUniqueId(), project);
+        unsaved.remove(player.getUniqueId());
+    }
+
+    /**
+     * Applies a change to the active project at once and writes it in the background, after any
+     * earlier write. If that write fails, the change stays in memory and is written again.
+     */
+    public void edit(Player player, Project project) {
+        requireOwner(player, project);
+        requireIdle(player);
+        projects.put(player.getUniqueId(), project);
+        unsaved.add(player.getUniqueId());
+        queueSave(project);
+    }
+
+    private static void requireOwner(Player player, Project project) {
         if (!project.song().owner().equals(player.getUniqueId())) {
             throw new IllegalArgumentException("This is not your project");
         }
-        store.save(project); // Persist successfully before replacing the in-memory version.
-        projects.put(player.getUniqueId(), project);
     }
 
-    public void edit(Player player, Project project) throws IOException {
-        requireIdle(player);
-        save(player, project);
+    // Retries a write that failed. A project with no failed write already matches its files.
+    private void persist(Player player) throws IOException {
+        Project current = projects.get(player.getUniqueId());
+        if (unsaved.contains(player.getUniqueId())) save(player, current);
     }
 
     public void requireIdle(Player player) {
         if (recordings.containsKey(player.getUniqueId())) {
             throw new IllegalArgumentException("Stop the recording with /music stop first");
+        }
+        CompletableFuture<Void> pending = pendingSaves.get(player.getUniqueId());
+        if (pending != null && pending.isDone()) completeSave(player.getUniqueId(), pending);
+    }
+
+    /** Also requires the project's files to be current, for changes that read or remove them. */
+    public void requireSaved(Player player) {
+        requireIdle(player);
+        if (pendingSaves.containsKey(player.getUniqueId())) {
+            throw new IllegalArgumentException("Your project is still saving. Try again shortly");
         }
     }
 
@@ -214,7 +277,7 @@ public final class StudioService {
                 && manager.getInstrument(player.getInventory().getItemInMainHand()) == null) {
             throw new IllegalArgumentException("Hold an instrument in your hand or off-hand");
         }
-        previews.remove(player.getUniqueId());
+        stopPreview(player);
         capacity();
         recordings.put(player.getUniqueId(), new Capture(project, slot, clock + settings.countInTicks()));
         player.sendMessage("Recording starts in " + settings.countInTicks() / 20 + " seconds. Play with the hotbar, "
@@ -250,7 +313,7 @@ public final class StudioService {
     }
 
     public void stop(Player player) {
-        previews.remove(player.getUniqueId());
+        stopPreview(player);
         Capture capture = recordings.get(player.getUniqueId());
         if (capture != null) {
             finish(player, capture, "Recording stopped");
@@ -264,13 +327,18 @@ public final class StudioService {
         Project project = requireProject(player);
         Song song = project.song();
         if (pending) {
-            if (project.pending() == null) {
+            Track take = project.pending();
+            if (take == null) {
                 throw new IllegalArgumentException("No take to preview");
             }
-            song = song.replace(project.pending());
+            // The take carries its track's mix, but reviewing it must be audible even on a muted or silent track.
+            song = song.replace(take.mix(take.gain() > 0 ? take.gain() : 1, false));
         }
         if (song.tracks().isEmpty()) {
             throw new IllegalArgumentException("Record and keep a track first");
+        }
+        if (!song.audible()) {
+            throw new IllegalArgumentException("Every saved track is muted or silent. Unmute or raise a track first");
         }
         previewSong(player, song);
         player.sendMessage(pending ? "Previewing the new take with the other tracks." : "Previewing the saved mix.");
@@ -282,14 +350,21 @@ public final class StudioService {
         Track track = song.track(slot);
         if (track == null) throw new IllegalArgumentException("Record and keep this track first");
         if (track.muted()) throw new IllegalArgumentException("Unmute this track to listen to it");
-        previewSong(player, new Song(song.id(), song.owner(), song.author(), song.title(), List.of(track)));
+        Song single = new Song(song.id(), song.owner(), song.author(), song.title(), List.of(track));
+        if (!single.audible()) throw new IllegalArgumentException("Raise this track's volume to listen to it");
+        previewSong(player, single);
         player.sendMessage("Listening to saved track " + slot + ".");
     }
 
     private void previewSong(Player player, Song song) {
-        previews.remove(player.getUniqueId());
+        stopPreview(player);
         capacity();
         previews.put(player.getUniqueId(), new Preview(song, clock + 1));
+    }
+
+    private void stopPreview(Player player) {
+        previews.remove(player.getUniqueId());
+        stopPrivateSounds(player);
     }
 
     public void makeBlank(Player player) {
@@ -332,11 +407,19 @@ public final class StudioService {
         if (project.pending() != null) {
             throw new IllegalArgumentException("Keep or discard your pending take first");
         }
-        if (new Timeline(project.song(), -1).due(Song.MAX_TICKS).isEmpty()) {
+        if (!project.song().audible()) {
             throw new IllegalArgumentException("The mix needs at least one audible note");
         }
-        Song edition = project.song().edition();
-        store.publish(edition); // No item is consumed when publication fails.
+        // Each publication of changed music adds a file that discs may reference forever.
+        lastPublished.values().removeIf(at -> clock - at >= settings.publishCooldownTicks());
+        Long last = lastPublished.get(player.getUniqueId());
+        if (last != null) {
+            long seconds = (last + settings.publishCooldownTicks() - clock + 19) / 20;
+            throw new IllegalArgumentException("Wait " + seconds + " seconds before publishing again");
+        }
+        // No item is consumed when publication fails.
+        Song edition = store.publishEdition(project.song(), settings.editionsPerDay());
+        lastPublished.put(player.getUniqueId(), clock);
         editions.put(edition.id(), edition);
         return edition;
     }
@@ -482,6 +565,8 @@ public final class StudioService {
 
     private void tick() {
         clock++;
+        completeSaves();
+        if (clock % RETRY_TICKS == 0) retryFailedSaves();
         for (var entry : new ArrayList<>(recordings.entrySet())) {
             Player player = plugin.getServer().getPlayer(entry.getKey());
             if (player == null) {
@@ -520,14 +605,7 @@ public final class StudioService {
                 if (capture.checkpoint.isCompletedExceptionally()) {
                     finish(player, capture, "Checkpoint failed; recording stopped to protect your take");
                 } else if (capture.checkpoint.isDone()) {
-                    Project snapshot = capture.snapshot((int) elapsed);
-                    capture.checkpoint = CompletableFuture.runAsync(() -> {
-                        try {
-                            store.save(snapshot);
-                        } catch (IOException ex) {
-                            throw new CompletionException(ex);
-                        }
-                    }, checkpointWriter);
+                    capture.checkpoint = write(capture.snapshot((int) elapsed));
                 }
             }
         }
@@ -538,6 +616,8 @@ public final class StudioService {
             int elapsed = (int) (clock - preview.start);
             if (player == null || elapsed >= preview.song.lengthTicks() + settings.tailTicks()) {
                 it.remove();
+                if (player != null) stopPrivateSounds(player);
+                else privateSounds.remove(entry.getKey());
             } else if (elapsed >= 0) {
                 emit(player, preview.timeline.due(elapsed));
             }
@@ -553,8 +633,9 @@ public final class StudioService {
             }
             Block block = world.getBlockAt(key.x, key.y, key.z);
             int elapsed = (int) (clock - playback.start);
-            if (!(block.getState() instanceof Jukebox box)
-                    || !playback.song.id().equals(discs.songId(box.getRecord()))
+            // The block type is cheap to read every tick. Reading the record copies the block state and
+            // item, so it is checked once a second; ejection and breaking stop playback immediately.
+            if (block.getType() != Material.JUKEBOX || elapsed % 20 == 0 && !holds(block, playback.song)
                     || elapsed >= playback.song.lengthTicks() + settings.tailTicks()) {
                 it.remove();
                 continue;
@@ -566,7 +647,7 @@ public final class StudioService {
                     for (Player listener : world.getPlayers()) {
                         if (listener.getLocation().distanceSquared(origin) <= settings.radius() * settings.radius()) {
                             for (Timeline.Trigger trigger : due) {
-                                sample(listener, origin, trigger);
+                                sample(listener, origin, trigger, SoundCategory.RECORDS);
                             }
                         }
                     }
@@ -575,87 +656,185 @@ public final class StudioService {
         }
     }
 
+    private boolean holds(Block block, Song song) {
+        return block.getState() instanceof Jukebox box && song.id().equals(discs.songId(box.getRecord()));
+    }
+
     private void emit(Player player, List<Timeline.Trigger> due) {
         for (Timeline.Trigger trigger : due) {
-            sample(player, player.getLocation(), trigger);
+            privateSounds.computeIfAbsent(player.getUniqueId(), key -> new HashSet<>()).add(trigger.note().sound());
+            sample(player, player.getLocation(), trigger, SoundCategory.PLAYERS);
         }
     }
 
-    private void sample(Player player, Location origin, Timeline.Trigger trigger) {
+    private void sample(Player player, Location origin, Timeline.Trigger trigger, SoundCategory category) {
         Note note = trigger.note();
-        player.playSound(origin, note.sound(), SoundCategory.RECORDS,
+        player.playSound(origin, note.sound(), category,
                 Math.min(16, note.volume() * trigger.gain()), note.pitch());
     }
 
     private void click(Player player) {
-        player.playSound(player.getLocation(), "block.note_block.hat", SoundCategory.RECORDS, 0.35f, 1);
+        privateSounds.computeIfAbsent(player.getUniqueId(), key -> new HashSet<>()).add("block.note_block.hat");
+        player.playSound(player.getLocation(), "block.note_block.hat", SoundCategory.PLAYERS, 0.35f, 1);
     }
 
     private void finish(Player player, Capture capture, String reason) {
         recordings.remove(player.getUniqueId());
+        stopPreview(player);
         player.sendActionBar(Component.empty());
         if (capture.notes.isEmpty()) {
             player.sendMessage(reason + ". No notes captured; the previous track was preserved.");
             return;
         }
         Project result = capture.snapshot((int) Math.max(1, Math.min(settings.durationTicks(), clock - capture.start + 1)));
-        // Retain the take in memory even if the disk fails, so /music keep can retry.
+        // The take is kept in memory even if the disk fails; it can be reviewed while it is written.
         projects.put(player.getUniqueId(), result);
-        // An older asynchronous checkpoint must finish before this final synchronous write.
-        try {
-            capture.checkpoint.join();
-        } catch (CompletionException ex) {
-            plugin.getLogger().log(Level.WARNING, "Recording checkpoint failed; retrying final save", ex.getCause());
+        unsaved.add(player.getUniqueId());
+        queueSave(result);
+        player.sendMessage(reason + ". Review the take: /music preview take, then /music keep or /music discard.");
+    }
+
+    private void queueSave(Project project) {
+        pendingSaves.put(project.song().owner(), write(project));
+    }
+
+    // One queued snapshot per owner, plus the single snapshot currently being written. Changes
+    // arriving during a write go to the tail, letting other owners save before this owner runs again.
+    private CompletableFuture<Void> write(Project project) {
+        UUID owner = project.song().owner();
+        synchronized (queuedSaves) {
+            QueuedSave queued = queuedSaves.get(owner);
+            if (queued != null) {
+                queued.project = project;
+                return queued.future;
+            }
+            QueuedSave next = new QueuedSave(project);
+            queuedSaves.put(owner, next);
+            CompletableFuture.runAsync(() -> {
+                Project snapshot;
+                synchronized (queuedSaves) {
+                    queuedSaves.remove(owner);
+                    snapshot = next.project;
+                }
+                saveSnapshot(snapshot);
+            }, checkpointWriter).whenComplete((ignored, error) -> {
+                if (error == null) next.future.complete(null);
+                else next.future.completeExceptionally(error);
+            });
+            return next.future;
         }
+    }
+
+    private void saveSnapshot(Project project) {
         try {
-            store.save(result);
-            player.sendMessage(reason + ". Take saved: /music preview take, /music keep, or /music discard.");
+            try {
+                store.save(project);
+            } catch (IOException ex) {
+                // A failure can appear only after close has checked the pending saves. Retry it
+                // once on this same worker, even after shutdown(), while the close budget remains.
+                long deadline = shutdownDeadline;
+                if (deadline == 0 || System.nanoTime() - deadline >= 0) throw ex;
+                store.save(project);
+            }
         } catch (IOException ex) {
-            failure(player, ex);
+            plugin.getLogger().log(Level.SEVERE, "Could not save studio project for " + project.song().owner(), ex);
+            throw new CompletionException(ex);
+        }
+    }
+
+    private void completeSave(UUID owner, CompletableFuture<Void> pending) {
+        pendingSaves.remove(owner);
+        Player player = plugin.getServer().getPlayer(owner);
+        if (pending.isCompletedExceptionally()) {
+            // Retried by the next change, every minute, on disconnect and on shutdown.
+            if (player != null) player.sendMessage("Could not save your project. Your changes are kept and will be saved again; "
+                    + "contact a server administrator if this continues.");
+            return;
+        }
+        // The latest write holds the cached project, so it now matches its files.
+        unsaved.remove(owner);
+        if (player == null) projects.remove(owner);
+    }
+
+    private void completeSaves() {
+        for (var entry : new ArrayList<>(pendingSaves.entrySet())) {
+            // Only completed writes: this never waits on disk from the musical clock.
+            if (entry.getValue().isDone()) completeSave(entry.getKey(), entry.getValue());
+        }
+    }
+
+    // Queues another write for every cached project whose last write failed. A recording is skipped:
+    // its checkpoints and final take include the cached project, which still lacks the take and would erase it.
+    private void retryFailedSaves() {
+        for (UUID owner : unsaved) {
+            if (!pendingSaves.containsKey(owner) && !recordings.containsKey(owner)) queueSave(projects.get(owner));
         }
     }
 
     public void quit(Player player) {
         Capture capture = recordings.get(player.getUniqueId());
         if (capture != null) {
-            finish(player, capture, "Recording saved on disconnect");
+            finish(player, capture, "Recording stopped on disconnect");
         }
-        previews.remove(player.getUniqueId());
-        Project project = projects.get(player.getUniqueId());
-        if (project != null) {
-            try {
-                store.save(project);
-                projects.remove(player.getUniqueId());
-            } catch (IOException ex) {
-                failure(player, ex);
-            }
-        }
+        stopPreview(player);
+        UUID owner = player.getUniqueId();
+        if (pendingSaves.containsKey(owner)) return; // completeSave evicts the project once it is written.
+        if (unsaved.contains(owner)) queueSave(projects.get(owner)); // Retry a write that failed.
+        else projects.remove(owner); // Its files are current; the next visit reloads it.
     }
 
     public void close() {
+        if (closed) return;
+        shutdownDeadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(SHUTDOWN_WAIT_SECONDS);
+        closed = true;
         task.cancel();
+        // Observe completed failures before deciding which cached takes need another save.
+        completeSaves();
         for (var entry : new ArrayList<>(recordings.entrySet())) {
             Player player = plugin.getServer().getPlayer(entry.getKey());
             if (player != null) {
-                finish(player, entry.getValue(), "Recording saved on shutdown");
+                finish(player, entry.getValue(), "Recording stopped on shutdown");
             }
         }
-        for (Project project : projects.values()) {
-            try {
-                store.save(project);
-            } catch (IOException ex) {
-                plugin.getLogger().log(Level.SEVERE, "Could not save studio project on shutdown", ex);
-            }
+        retryFailedSaves();
+        for (UUID owner : new ArrayList<>(privateSounds.keySet())) {
+            Player player = plugin.getServer().getPlayer(owner);
+            if (player != null) stopPreview(player);
         }
         jukeboxes.clear();
         previews.clear();
         recordings.clear();
+        privateSounds.clear();
         checkpointWriter.shutdown();
+        try {
+            // Losing a take is worse than a slower shutdown, but a stuck disk must not hang it forever.
+            if (!checkpointWriter.awaitTermination(SHUTDOWN_WAIT_SECONDS, TimeUnit.SECONDS)) {
+                plugin.getLogger().severe("Studio saves are still pending after the shutdown timeout");
+            }
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            plugin.getLogger().log(Level.SEVERE, "Interrupted while saving studio projects on shutdown", ex);
+        }
+        completeSaves();
+    }
+
+    private void stopPrivateSounds(Player player) {
+        Set<String> sounds = privateSounds.remove(player.getUniqueId());
+        if (sounds != null) for (String sound : sounds) player.stopSound(sound, SoundCategory.PLAYERS);
     }
 
     public void failure(Player player, IOException ex) {
         plugin.getLogger().log(Level.SEVERE, "Studio storage operation failed for " + player.getUniqueId(), ex);
         player.sendMessage("Could not read/write the recording. Your disc was preserved; contact a server administrator.");
+    }
+
+    private static final class QueuedSave {
+        private Project project;
+        private final CompletableFuture<Void> future = new CompletableFuture<>();
+
+        private QueuedSave(Project project) {
+            this.project = project;
+        }
     }
 
     private static final class Capture {

@@ -164,7 +164,7 @@ class InstrumentPluginTest {
         }
 
         assertTrue(player.performCommand("music stop"));
-        assertEquals("Recording stopped. Take saved: /music preview take, /music keep, or /music discard.", player.nextMessage());
+        assertEquals("Recording stopped. Review the take: /music preview take, then /music keep or /music discard.", player.nextMessage());
     }
 
     @Test

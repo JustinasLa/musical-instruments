@@ -41,17 +41,36 @@ class StudioModelTest {
     }
 
     @Test
-    void acceptingOrDiscardingATakePreservesPublishedEditions() {
+    void audibilityIgnoresMutedSilentAndZeroVolumeTracks() {
+        Track muted = new Track(1, 10, 1, false, List.of(note(0, "a"))).mix(1, true);
+        Track silent = new Track(2, 10, 0, false, List.of(note(0, "b")));
+        Track quiet = new Track(3, 10, 1, false, List.of(new Note(0, "lute", "c", 0, 1)));
+        assertFalse(song(muted, silent, quiet).audible());
+        assertFalse(song().audible());
+        assertTrue(song(muted, new Track(4, 10, 1, false, List.of(new Note(0, "lute", "d", 0, 1), note(1, "e")))).audible());
+    }
+
+    @Test
+    void acceptingOrDiscardingATakeLeavesTheOriginalSongUnchanged() {
         Song original = song(new Track(1, 100, 1, false, List.of(note(0, "original"))));
-        Song edition = original.edition();
         Track replacement = new Track(1, 50, 0.5f, false, List.of(note(20, "replacement")));
         Project project = new Project(original, replacement, 100, true);
         assertEquals("original", project.discard().song().track(1).notes().getFirst().sound());
         assertEquals("replacement", project.accept().song().track(1).notes().getFirst().sound());
         assertEquals(50, project.accept().song().lengthTicks());
-        assertEquals("original", edition.track(1).notes().getFirst().sound());
-        assertNotEquals(original.id(), edition.id());
+        assertEquals("original", original.track(1).notes().getFirst().sound());
         assertNull(project.accept().pending());
+    }
+
+    @Test
+    void aTakeWhoseSavedTrackWasRemovedIsKeptAtFullVolume() {
+        Song original = song(new Track(1, 100, 0.5f, true, List.of(note(0, "original"))));
+        Project project = new Project(original, new Track(1, 50, 1, false, List.of(note(20, "replacement"))), 100, true);
+        assertEquals(0.5f, project.pending().gain());
+        assertTrue(project.pending().muted());
+        Track kept = new Project(original.remove(1), project.pending(), 100, true).accept().song().track(1);
+        assertEquals(1, kept.gain());
+        assertFalse(kept.muted());
     }
 
     @Test

@@ -11,6 +11,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
+import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -18,14 +19,17 @@ import org.bukkit.event.world.ChunkUnloadEvent;
 import org.bukkit.event.world.WorldUnloadEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.Plugin;
 
 import java.io.IOException;
 
 public final class StudioListener implements Listener {
+    private final Plugin plugin;
     private final StudioService studio;
     private final StudioMenu menu;
 
-    public StudioListener(StudioService studio, StudioMenu menu) {
+    public StudioListener(Plugin plugin, StudioService studio, StudioMenu menu) {
+        this.plugin = plugin;
         this.studio = studio;
         this.menu = menu;
     }
@@ -34,6 +38,8 @@ public final class StudioListener implements Listener {
     public void interact(PlayerInteractEvent event) {
         if (event.getAction() != Action.RIGHT_CLICK_BLOCK || event.getClickedBlock() == null
                 || event.useInteractedBlock() == Event.Result.DENY
+                // Check the type first: getState() copies block entities such as chest inventories.
+                || event.getClickedBlock().getType() != Material.JUKEBOX
                 || !(event.getClickedBlock().getState() instanceof Jukebox box)) {
             return;
         }
@@ -125,6 +131,25 @@ public final class StudioListener implements Listener {
         // Custom editions require our insertion lifecycle; vanilla discs retain hopper behavior.
         if (studio.discs().custom(event.getItem()) && event.getDestination().getHolder() instanceof Jukebox) {
             event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void extract(InventoryMoveItemEvent event) {
+        // A rejected transfer restores the source disc after the event, so check on the next tick.
+        // Hoppers move items constantly, so the cheap item and inventory type checks come first.
+        if (studio.discs().custom(event.getItem()) && event.getSource().getType() == InventoryType.JUKEBOX
+                && event.getSource().getLocation() != null) {
+            Block block = event.getSource().getLocation().getBlock();
+            plugin.getServer().getScheduler().runTask(plugin, () -> {
+                // Do not reload a chunk that unloaded while the transfer completed.
+                if (block.getWorld().isChunkLoaded(block.getX() >> 4, block.getZ() >> 4)
+                        && block.getType() == Material.JUKEBOX
+                        && block.getState() instanceof Jukebox box
+                        && !studio.discs().custom(box.getRecord())) {
+                    studio.stop(block);
+                }
+            });
         }
     }
 
